@@ -13,7 +13,9 @@ venv/
 
 # ---- Node ----
 node_modules/
-dist/
+# dist/ 保留入库：双击即可离线运行的分发产物，不忽略
+test-results/
+playwright-report/
 
 # ---- IDE / 编辑器 ----
 .idea/

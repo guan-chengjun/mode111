@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>湖泊帆船航行仿真</title>
+  <style>
+    :root {
+      --panel-bg: rgba(18, 32, 42, 0.78);
+      --panel-line: rgba(255, 255, 255, 0.14);
+      --text: #eef4f7;
+      --muted: #a9bfca;
+      --accent: #7fc7e8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif; background: #cfe4ee; }
+    #app canvas { display: block; }
+
+    /* ---- 控制面板 ---- */
+    #panel {
+      position: fixed; top: 16px; left: 16px; width: 248px;
+      background: var(--panel-bg); color: var(--text);
+      border: 1px solid var(--panel-line); border-radius: 12px;
+      padding: 14px 16px; backdrop-filter: blur(10px);
+      font-size: 13px; line-height: 1.5; user-select: none; z-index: 10;
+    }
+    #panel h1 { font-size: 15px; font-weight: 600; margin-bottom: 10px; letter-spacing: 1px; }
+    .ctl { margin-bottom: 12px; }
+    .ctl label { display: flex; justify-content: space-between; color: var(--muted); margin-bottom: 4px; }
+    .ctl label b { color: var(--text); font-weight: 500; }
+    input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+    .wind-row { display: flex; align-items: center; gap: 10px; }
+    .compass {
+      width: 46px; height: 46px; flex: none; border-radius: 50%;
+      border: 1px solid var(--panel-line); position: relative;
+      background: radial-gradient(circle at 50% 40%, rgba(255,255,255,0.12), rgba(0,0,0,0.15));
+    }
+    .compass span { position: absolute; font-size: 9px; color: var(--muted); }
+    .compass .n { top: 2px; left: 50%; transform: translateX(-50%); }
+    .compass .s { bottom: 2px; left: 50%; transform: translateX(-50%); }
+    .compass .e { right: 4px; top: 50%; transform: translateY(-50%); }
+    .compass .w { left: 4px; top: 50%; transform: translateY(-50%); }
+    #wind-arrow {
+      position: absolute; left: 50%; top: 50%; width: 2px; height: 17px;
+      background: linear-gradient(var(--accent), transparent);
+      transform-origin: 50% 100%;
+      transform: translateX(-50%) translateY(-100%) rotate(0deg);
+    }
+    .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    button {
+      background: rgba(127, 199, 232, 0.16); color: var(--text);
+      border: 1px solid var(--panel-line); border-radius: 8px;
+      padding: 7px 4px; font-size: 12px; cursor: pointer; transition: background 0.15s;
+    }
+    button:hover { background: rgba(127, 199, 232, 0.32); }
+    .btns .full { grid-column: 1 / -1; }
+    hr { border: none; border-top: 1px solid var(--panel-line); margin: 10px 0; }
+    .readout { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; font-size: 12px; }
+    .readout dt { color: var(--muted); }
+    .readout dd { text-align: right; font-variant-numeric: tabular-nums; }
+    .hint { margin-top: 10px; font-size: 11px; color: var(--muted); }
+
+    /* ---- 加载提示（非弹窗） ---- */
+    #loading {
+      position: fixed; right: 18px; bottom: 18px; z-index: 10;
+      background: var(--panel-bg); color: var(--text);
+      border: 1px solid var(--panel-line); border-radius: 10px;
+      padding: 10px 14px; font-size: 12px; backdrop-filter: blur(8px);
+      transition: opacity 0.6s ease;
+    }
+    #loading.loading--hide { opacity: 0; }
+    #loading-note { color: var(--muted); margin-top: 3px; }
+    .spinner {
+      display: inline-block; width: 12px; height: 12px; margin-right: 6px;
+      border: 2px solid var(--muted); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin 0.9s linear infinite; vertical-align: -1px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <section id="panel">
+    <h1>⛵ 帆船航行仿真</h1>
+
+    <div class="ctl">
+      <label>风向 <b id="wind-dir-val">45°</b></label>
+      <div class="wind-row">
+        <div class="compass">
+          <span class="n">北</span><span class="s">南</span><span class="e">东</span><span class="w">西</span>
+          <div id="wind-arrow"></div>
+        </div>
+        <input id="wind-dir" type="range" min="0" max="359" step="1" value="45" />
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;margin-top:6px;cursor:pointer;">
+        <input id="wind-auto" type="checkbox" checked style="accent-color:var(--accent);" />
+        风向自动缓慢变化
+      </label>
+    </div>
+
+    <div class="ctl">
+      <label>风力 <b id="wind-speed-val">5.5 m/s</b></label>
+      <input id="wind-speed" type="range" min="0" max="14" step="0.1" value="5.5" />
+    </div>
+
+    <div class="btns">
+      <button id="btn-pause">暂停航行</button>
+      <button id="btn-reset">重置位置</button>
+      <button id="btn-view" class="full">切换跟随视角</button>
+    </div>
+
+    <hr />
+    <dl class="readout">
+      <dt>当前风向</dt><dd id="r-wind-dir">—</dd>
+      <dt>风力</dt><dd id="r-wind-level">—</dd>
+      <dt>船速</dt><dd id="r-boat-speed">—</dd>
+      <dt>帆状态</dt><dd id="r-sail-state">—</dd>
+    </dl>
+    <p class="hint">左键旋转 · 滚轮缩放 · 右键平移</p>
+  </section>
+
+  <div id="loading">
+    <div><span class="spinner"></span><span id="loading-text">正在初始化场景…</span></div>
+    <div id="loading-note">模型加载失败时将自动使用基础几何体</div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

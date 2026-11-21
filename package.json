@@ -1,0 +1,20 @@
+{
+  "name": "lake-sailing-sim",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "湖泊帆船航行 3D 仿真 - Three.js 纯前端项目",
+  "scripts": {
+    "build:models": "node tools/build-models.mjs",
+    "build": "node tools/build.mjs",
+    "test": "npm run build && node tools/smoke.mjs && node tools/shot-fallback.mjs",
+    "shot": "node tools/shot.mjs",
+    "serve": "node tools/serve.mjs",
+    "check": "node --check src/main.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "playwright": "^1.65.1",
+    "three": "0.160.0"
+  }
+}
